@@ -4,7 +4,7 @@ Public methods each module exposes to the others. Code against these signatures;
 
 ## M5 — Memory hierarchy (`tomasulo.memory`)
 
-Status: everything below is implemented and tested, except `copy()` on `Memory` and `Cache` and the `CacheLine` address-range getters (Phase 6).
+Status: everything below is implemented and tested.
 
 ### SimConfig — every user input
 
