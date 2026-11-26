@@ -9,7 +9,82 @@ public class CacheTest {
         findLineOnEmptyCacheReturnsNull();
         findLineSearchesEveryLine();
         rejectsInvalidConfig();
+        firstAccessIsMissThenHit();
+        missPlacesBlockInEmptyLine();
+        hitUpdatesLastUsedCycle();
+        pdfLoopCounts();
+        biggerBlocksGiveFewerMisses();
+        rejectsInvalidAccess();
         System.out.println("All Cache tests passed.");
+    }
+
+    static void firstAccessIsMissThenHit() {
+        SimConfig config = new SimConfig();
+        config.setCacheHitLatency(2);
+        config.setCacheMissPenalty(7);
+        Cache cache = new Cache(config);
+
+        AccessResult miss = cache.access(0, 8, false, 1);
+        check(!miss.isHit() && miss.getMissCount() == 1, "first access to block 0 should be a compulsory miss");
+        check(miss.getCycles() == 2 + 7, "a miss should cost hit latency + miss penalty");
+
+        AccessResult hit = cache.access(8, 8, false, 2);
+        check(hit.isHit() && hit.getMissCount() == 0, "address 8 is in block 0, so it should hit");
+        check(hit.getCycles() == 2, "a hit should cost the hit latency");
+
+        check(!cache.access(16, 8, false, 3).isHit(), "first access to block 1 should miss");
+    }
+
+    static void missPlacesBlockInEmptyLine() {
+        Cache cache = cache(64, 16);
+        cache.access(40, 8, false, 5);
+        CacheLine line = cache.findLine(2);
+        check(line != null && line.isValid(), "block 2 should be in the cache after the miss");
+        check(line.getLastUsedCycle() == 5, "lastUsedCycle should be the access cycle");
+    }
+
+    static void hitUpdatesLastUsedCycle() {
+        Cache cache = cache(64, 16);
+        cache.access(0, 8, false, 1);
+        cache.access(4, 4, true, 9);
+        check(cache.findLine(0).getLastUsedCycle() == 9, "a hit should update lastUsedCycle");
+    }
+
+    static void pdfLoopCounts() {
+        // L.D then S.D at R1 = 0, 8, 16, 24; 16-byte blocks, 64-byte cache
+        int[] misses = runPdfLoop(cache(64, 16));
+        check(misses[0] == 2 && misses[1] == 6, "PDF loop should give 2 misses and 6 hits, got "
+                + misses[0] + " misses and " + misses[1] + " hits");
+    }
+
+    static void biggerBlocksGiveFewerMisses() {
+        check(runPdfLoop(cache(64, 8))[0] == 4, "8-byte blocks should give 4 misses");
+        check(runPdfLoop(cache(64, 32))[0] == 1, "32-byte blocks should give 1 miss");
+    }
+
+    static void rejectsInvalidAccess() {
+        Cache cache = cache(64, 16);
+        try {
+            cache.access(-8, 8, false, 1);
+        } catch (IllegalArgumentException expected) {
+            return;
+        }
+        throw new AssertionError("a negative address should be rejected");
+    }
+
+    /** Returns {misses, hits}. */
+    private static int[] runPdfLoop(Cache cache) {
+        int misses = 0;
+        int hits = 0;
+        int cycle = 1;
+        for (int address = 0; address < 32; address += 8) {
+            for (boolean isWrite : new boolean[] {false, true}) {
+                AccessResult result = cache.access(address, 8, isWrite, cycle++);
+                misses += result.getMissCount();
+                hits += result.isHit() ? 1 : 0;
+            }
+        }
+        return new int[] {misses, hits};
     }
 
     static void lineCountIsCacheSizeOverBlockSize() {
