@@ -15,7 +15,79 @@ public class CacheTest {
         pdfLoopCounts();
         biggerBlocksGiveFewerMisses();
         rejectsInvalidAccess();
+        lruEvictsOldest();
+        storeMissAllocatesBlock();
+        storeThenLoadReturnsNewValue();
+        boundaryTouchesTwoBlocks();
+        boundaryWithOneBlockPresent();
+        countersMatchPdfLoop();
+        countersCountEveryBlockTouched();
         System.out.println("All Cache tests passed.");
+    }
+
+    static void lruEvictsOldest() {
+        // Guide's Test C: 2 lines, loads at 0, 16, 0, 32, 16
+        Cache cache = cache(32, 16);
+        check(!cache.access(0, 8, false, 1).isHit(), "load 1 (block 0) should miss");
+        check(!cache.access(16, 8, false, 2).isHit(), "load 2 (block 1) should miss");
+        check(cache.access(0, 8, false, 3).isHit(), "load 3 (block 0) should hit");
+        check(!cache.access(32, 8, false, 4).isHit(), "load 4 (block 2) should miss and evict block 1");
+        check(cache.findLine(1) == null && cache.findLine(0) != null, "block 1 was least recently used");
+        check(!cache.access(16, 8, false, 5).isHit(), "load 5 (block 1) should miss and evict block 0");
+        check(cache.findLine(2) != null && cache.findLine(1) != null && cache.findLine(0) == null,
+                "final blocks should be 2 and 1");
+        check(cache.getMisses() == 4 && cache.getHits() == 1, "Test C should give 4 misses and 1 hit");
+    }
+
+    static void storeMissAllocatesBlock() {
+        Cache cache = cache(64, 16);
+        check(!cache.access(64, 8, true, 1).isHit(), "first store to block 4 should miss");
+        check(cache.findLine(4) != null, "write-allocate: the store miss should bring block 4 in");
+        check(cache.access(64, 8, false, 2).isHit(), "a load after the store should hit");
+    }
+
+    static void storeThenLoadReturnsNewValue() {
+        SimConfig config = new SimConfig();
+        Cache cache = new Cache(config);
+        Memory memory = new Memory(config.getMemorySize());
+
+        cache.access(8, 8, true, 1);
+        memory.writeDouble(8, 2.5);
+        check(cache.access(8, 8, false, 2).isHit(), "the load should hit the block the store allocated");
+        check(memory.readDouble(8) == 2.5, "write-through: memory should hold the stored value");
+    }
+
+    static void boundaryTouchesTwoBlocks() {
+        SimConfig config = new SimConfig();
+        config.setCacheHitLatency(2);
+        config.setCacheMissPenalty(7);
+        Cache cache = new Cache(config);
+
+        AccessResult result = cache.access(12, 8, false, 1);
+        check(result.getMissCount() == 2 && result.getCycles() == 2 + 2 * 7, "bytes 12-19 should miss blocks 0 and 1");
+        check(cache.findLine(0) != null && cache.findLine(1) != null, "both blocks should be in the cache");
+        check(cache.access(12, 8, false, 2).getCycles() == 2, "the same access again should be a hit");
+    }
+
+    static void boundaryWithOneBlockPresent() {
+        Cache cache = cache(64, 16);
+        cache.access(16, 8, false, 1);
+        AccessResult result = cache.access(28, 8, false, 2);
+        check(!result.isHit() && result.getMissCount() == 1, "bytes 28-35 should hit block 1 and miss block 2");
+        check(result.getCycles() == 1 + 10, "one missing block should add one penalty");
+    }
+
+    static void countersMatchPdfLoop() {
+        Cache cache = cache(64, 16);
+        runPdfLoop(cache);
+        check(cache.getMisses() == 2 && cache.getHits() == 6, "counters should show 2 misses and 6 hits");
+    }
+
+    static void countersCountEveryBlockTouched() {
+        Cache cache = cache(64, 16);
+        cache.access(16, 8, false, 1);
+        cache.access(28, 8, false, 2);
+        check(cache.getMisses() == 2 && cache.getHits() == 1, "3 block lookups: 2 misses and 1 hit");
     }
 
     static void firstAccessIsMissThenHit() {

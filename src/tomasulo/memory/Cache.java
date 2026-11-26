@@ -13,6 +13,8 @@ public class Cache {
     private final int blockSize;
     private final int hitLatency;
     private final int missPenalty;
+    private int hits;
+    private int misses;
 
     public Cache(SimConfig config) {
         List<String> errors = config.validate();
@@ -47,42 +49,55 @@ public class Cache {
     }
 
     /**
-     * Looks up the block holding the accessed bytes and returns the cost: hit latency, plus the miss
-     * penalty on a miss. Stores are handled exactly like loads (write-allocate); the caller then
-     * writes the value into Memory (write-through).
+     * Looks up every block the accessed bytes touch and returns the cost: hit latency plus one miss
+     * penalty per missing block. Stores are handled exactly like loads (write-allocate); the caller
+     * then writes the value into Memory (write-through).
      */
     public AccessResult access(int address, int sizeBytes, boolean isWrite, int cycle) {
         if (address < 0 || sizeBytes <= 0) {
             throw new IllegalArgumentException("Invalid access: " + sizeBytes + " byte(s) at address " + address + ".");
         }
-        int block = blockNumberOf(address);
-        if (blockNumberOf(address + sizeBytes - 1) != block) {
-            throw new UnsupportedOperationException("Accesses that cross a block boundary are not supported yet (Phase 5.3).");
-        }
+        int firstBlock = blockNumberOf(address);
+        int lastBlock = blockNumberOf(address + sizeBytes - 1);
 
         int missCount = 0;
-        CacheLine line = findLine(block);
-        if (line == null) {
-            missCount++;
-            line = findEmptyLine();
+        for (int block = firstBlock; block <= lastBlock; block++) {
+            CacheLine line = findLine(block);
             if (line == null) {
-                throw new UnsupportedOperationException("The cache is full; LRU eviction is not implemented yet (Phase 5.1).");
+                missCount++;
+                line = lineToReplace();
+                line.valid = true;
+                line.blockNumber = block;
             }
-            line.valid = true;
-            line.blockNumber = block;
+            line.lastUsedCycle = cycle;
         }
-        line.lastUsedCycle = cycle;
 
+        // Statistics count block lookups, so an access touching two blocks adds two to hits + misses.
+        misses += missCount;
+        hits += (lastBlock - firstBlock + 1) - missCount;
         return new AccessResult(missCount == 0, hitLatency + missCount * missPenalty, missCount);
     }
 
-    private CacheLine findEmptyLine() {
+    /** An empty line if there is one; otherwise the least recently used line (LRU). */
+    private CacheLine lineToReplace() {
+        CacheLine victim = lines[0];
         for (CacheLine line : lines) {
             if (!line.valid) {
                 return line;
             }
+            if (line.lastUsedCycle < victim.lastUsedCycle) {
+                victim = line;
+            }
         }
-        return null;
+        return victim;
+    }
+
+    public int getHits() {
+        return hits;
+    }
+
+    public int getMisses() {
+        return misses;
     }
 
     public List<CacheLine> getLines() {
