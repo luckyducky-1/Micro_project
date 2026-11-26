@@ -26,10 +26,20 @@ public class Cache {
         missPenalty = config.getCacheMissPenalty();
         lines = new CacheLine[config.getCacheSize() / blockSize];
         for (int i = 0; i < lines.length; i++) {
-            lines[i] = new CacheLine();
+            lines[i] = new CacheLine(blockSize);
         }
     }
 
+    private Cache(Cache other) {
+        blockSize = other.blockSize;
+        hitLatency = other.hitLatency;
+        missPenalty = other.missPenalty;
+        hits = other.hits;
+        misses = other.misses;
+        lines = new CacheLine[other.lines.length];
+        for (int i = 0; i < lines.length; i++) {
+            lines[i] = other.lines[i].copy();
+        }
     int blockNumberOf(int address) {
         return address / blockSize;
     }

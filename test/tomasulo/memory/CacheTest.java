@@ -22,7 +22,41 @@ public class CacheTest {
         boundaryWithOneBlockPresent();
         countersMatchPdfLoop();
         countersCountEveryBlockTouched();
+        copyIsDeep();
+        copyKeepsState();
+        lineShowsAddressRange();
         System.out.println("All Cache tests passed.");
+    }
+
+    static void copyIsDeep() {
+        Cache original = cache(32, 16);
+        original.access(0, 8, false, 1);
+        Cache copy = original.copy();
+
+        copy.access(16, 8, false, 2);
+        copy.access(32, 8, false, 3);
+        check(original.findLine(0) != null && original.findLine(1) == null, "changing the copy must not change the original's lines");
+        check(original.getLines().get(0).getLastUsedCycle() == 1, "the original's lastUsedCycle must not change");
+        check(original.getMisses() == 1 && original.getHits() == 0, "the original's counters must not change");
+
+        original.access(48, 8, false, 4);
+        check(copy.findLine(3) == null, "changing the original must not change the copy");
+    }
+
+    static void copyKeepsState() {
+        Cache original = cache(64, 16);
+        runPdfLoop(original);
+        Cache copy = original.copy();
+        check(copy.getMisses() == 2 && copy.getHits() == 6, "the copy should keep the counters");
+        check(copy.findLine(0) != null && copy.findLine(1) != null, "the copy should hold the same blocks");
+        check(copy.access(24, 8, false, 9).isHit(), "the copy should behave like the original");
+    }
+
+    static void lineShowsAddressRange() {
+        Cache cache = cache(64, 16);
+        cache.access(40, 8, false, 1);
+        CacheLine line = cache.findLine(2);
+        check(line.getFirstAddress() == 32 && line.getLastAddress() == 47, "block 2 should cover addresses 32-47");
     }
 
     static void lruEvictsOldest() {

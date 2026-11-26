@@ -77,6 +77,13 @@ public class Memory {
         }
     }
 
+    /** Deep copy for cycle snapshots: the copy has its own byte array. */
+    public Memory copy() {
+        Memory copy = new Memory(bytes.length);
+        System.arraycopy(bytes, 0, copy.bytes, 0, bytes.length);
+        return copy;
+    }
+
     private void check(int address, int byteCount) {
         // Written as "address > length - count" so a huge address cannot overflow the sum.
         if (address < 0 || address > bytes.length - byteCount) {

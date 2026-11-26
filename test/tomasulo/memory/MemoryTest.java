@@ -16,7 +16,20 @@ public class MemoryTest {
         outOfBoundsThrows();
         rejectsNonPositiveSize();
         preloadDoublesFillsConsecutiveSlots();
+        copyIsDeep();
         System.out.println("All Memory tests passed.");
+    }
+
+    static void copyIsDeep() {
+        Memory original = new Memory(SIZE);
+        original.writeDouble(0, 1.5);
+        Memory copy = original.copy();
+        check(copy.size() == SIZE && copy.readDouble(0) == 1.5, "the copy should hold the same bytes");
+
+        copy.writeDouble(0, 9.0);
+        check(original.readDouble(0) == 1.5, "changing the copy must not change the original");
+        original.writeInt(100, 7);
+        check(copy.readInt(100) == 0, "changing the original must not change the copy");
     }
 
     static void startsZeroed() {
