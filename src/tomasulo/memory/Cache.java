@@ -40,6 +40,13 @@ public class Cache {
         for (int i = 0; i < lines.length; i++) {
             lines[i] = other.lines[i].copy();
         }
+    }
+
+    /** Deep copy for cycle snapshots: the copy shares no CacheLine objects with this cache. */
+    public Cache copy() {
+        return new Cache(this);
+    }
+
     int blockNumberOf(int address) {
         return address / blockSize;
     }
