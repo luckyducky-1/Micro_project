@@ -4,7 +4,7 @@ Public methods each module exposes to the others. Code against these signatures;
 
 ## M5 — Memory hierarchy (`tomasulo.memory`)
 
-Status: `SimConfig` is implemented. `Memory`, `Cache`, `CacheLine` and `AccessResult` are proposed signatures, to be built in M5 phases 2–6.
+Status: `SimConfig` and `Memory` are implemented, except `Memory.copy()` (Phase 6). `Cache` and `CacheLine` are partly built (Phase 3: the line structure and address mapping). `access`, `AccessResult` and the statistics come next.
 
 ### SimConfig — every user input
 
@@ -37,7 +37,8 @@ float  readFloat(int address)   void writeFloat(int address, float value)    // 
 double readDouble(int address)  void writeDouble(int address, double value)  // L.D / S.D, 8 bytes
 byte   getByte(int address)     // for the GUI
 int    size()
-Memory copy()                   // deep copy for cycle snapshots
+void   preloadDoubles(int startAddress, double... values)  // consecutive 8-byte doubles, for test setup
+Memory copy()                   // deep copy for cycle snapshots (Phase 6)
 ```
 
 Little-endian. An out-of-range address throws `IllegalArgumentException` with the address in the message.
