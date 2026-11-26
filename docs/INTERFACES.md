@@ -4,7 +4,7 @@ Public methods each module exposes to the others. Code against these signatures;
 
 ## M5 — Memory hierarchy (`tomasulo.memory`)
 
-Status: `SimConfig` and `Memory` are implemented, except `Memory.copy()` (Phase 6). `Cache` and `CacheLine` are partly built (Phase 3: the line structure and address mapping). `access`, `AccessResult` and the statistics come next.
+Status: everything below is implemented and tested, except `copy()` on `Memory` and `Cache` and the `CacheLine` address-range getters (Phase 6).
 
 ### SimConfig — every user input
 
@@ -64,7 +64,7 @@ How a load or store uses it (M4 in the load/store buffers, M1 in the regular pip
 2. The access takes `result.getCycles()` cycles.
 3. Then read the value from `Memory` (load) or write it to `Memory` (store).
 
-Policies: fully associative, starts empty, LRU replacement, write-through, write-allocate. Cost = hit latency + one miss penalty per missing block; an access that crosses a block boundary checks every block it touches. A block counts as present from the cycle its miss starts.
+Policies: fully associative, starts empty, LRU replacement, write-through, write-allocate. Cost = hit latency + one miss penalty per missing block; an access that crosses a block boundary checks every block it touches. A block counts as present from the cycle its miss starts. `getHits()` and `getMisses()` count block lookups, so an access that touches two blocks adds 2 to their sum.
 
 Addresses are `int`. `LoadStoreBuffer.effectiveAddress()` returns `Long`, so cast with `(int)` when calling the cache.
 
